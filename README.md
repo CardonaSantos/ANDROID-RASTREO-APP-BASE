@@ -1,158 +1,85 @@
-# NOVA Design Foundation
+# MARCAS Rastreo · Android
 
-Base de tokens + themes para Expo SDK 57 / React Native 0.86 / Unistyles 3 / React Native Paper 5.
+App de campo para registrar jornadas y posiciones GPS en **MARCAS-GT-SERVER**.
+Refactor a partir de `checkpoint-android-studio` (`16b2ffcb`) de
+`CardonaSantos/ANDROID-RASTREO-APP-BASE`.
 
-Esta entrega **no incluye todavía**:
-- motion / animaciones,
-- pressables,
-- haptics,
-- accesibilidad,
-- componentes App*.
+## Interfaz deliberadamente mínima
 
-La intención es que esas capas consuman esta foundation sin hardcodear colores, tamaños, tipografía, radios o breakpoints.
+Solo existen `/login`, `/` (principal) y `/tracking` (jornada).
+No se incluyen tickets, instalaciones, cobros, clientes, mapas de supervisión
+ni notificaciones del CRM de técnicos. Se conserva la arquitectura de
+`src/core` y `src/design-system`, así como el motor de localización
+de `src/features/tracking`.
 
-## 1. Dependencia adicional para Inter
+## Conexión con MARCAS-GT-SERVER
 
-El proyecto ya incluye `expo-font`, pero para usar la tipografía definida aquí instala:
+Base verificada: rama `update-requerimientos`, commit `38753083`.
+
+| Acción | Método / ruta | Roles |
+| --- | --- | --- |
+| Login | `POST /auth/login` | usuario activo |
+| Iniciar jornada | `POST /real-time-location/tracking/start` | VENDEDOR / REPARTIDOR / ADMIN |
+| Estado propio | `GET /real-time-location/tracking/me` | mismos |
+| Enviar punto | `POST /real-time-location/tracking/location` | mismos |
+| Finalizar jornada | `POST /real-time-location/tracking/:id/finish` | mismos |
+
+Login acepta `{correo, contrasena}` y devuelve `{authToken, usuario}`.
+No existe `GET /auth/profile` ni refresh-token en este contrato. La app
+guarda el JWT en SecureStore mediante el Session Core y el perfil
+validado de login en una entrada segura separada. El servidor vuelve
+a comprobar cuenta activa y rol en cada request.
+
+La jornada se crea/retoma en el servidor, con asistencia vinculada.
+No se envía `usuarioId` desde el dispositivo: se deriva del JWT.
+Los pings contienen `sesionTrackingId`, latitud, longitud, precisión,
+velocidad, batería, `capturadoEn` y `claveIdempotencia` estable.
+
+## Ejecución local
+
+1. `npm ci`
+2. Copiar `.env.example` a `.env` y editar `EXPO_PUBLIC_API_URL`.
+   Android Emulator puede usar `http://10.0.2.2:4000`; dispositivo físico
+   usa la IP LAN o un dominio HTTPS accesible.
+3. `npx expo run:android` con un dispositivo/emulador configurado.
+   El seguimiento en segundo plano usa tareas nativas y no funciona
+   como servicio real en la vista previa Web.
+4. Iniciar sesión con usuario MARCAS `VENDEDOR`, `REPARTIDOR` o `ADMIN`.
+5. Conceder ubicación normal y en segundo plano, activar GPS, iniciar
+   jornada y verificar el indicador de servicio y sincronización.
+
+## Seguimiento y seguridad
+
+- `expo-task-manager` define la tarea antes de montar Expo Router.
+- `expo-location` mantiene foreground service visible en Android durante la jornada.
+- Ubicaciones aceptadas se guardan primero en SQLite y después se envían
+  por HTTP. Reintentos comparten `claveIdempotencia`.
+- Primer punto: se solicita un fix inmediato tras iniciar el servicio.
+  Después se envía por tiempo (objetivo 5 min con perfil normal) **o**
+  distancia (250 m). Android puede modular la frecuencia real.
+- Al recuperar red o volver a primer plano, se reconcilia con el
+  estado del servidor y se vacía la cola.
+- Finalizar y cerrar sesión requieren sincronizar ubicaciones pendientes;
+  una caída de red no debe descartarlas silenciosamente.
+- El backend expira jornadas sin heartbeat (por defecto tras 120 min,
+  con barrido cada 10 min). Una desconexión prolongada puede hacer que
+  la jornada expire antes de sincronizar sus pings: este riesgo requiere
+  una política de producto/backend si se planea operar offline por horas.
+- Web es solo vista previa: SecureStore y SQLite de tracking son nativos.
+
+## Validación
 
 ```bash
-npx expo install @expo-google-fonts/inter@0.4.2
+npx tsc --noEmit
+npm run lint
+npm run test:tracking
+npm test -- --runInBand
 ```
 
-No se incluyen ni distribuyen archivos de fuente en este paquete.
+Además probar en **Android físico**: permisos desde cero, bloqueo de pantalla,
+recorrido real, modo avión y reconexión, volver a abrir la app, cierre con
+cola pendiente, y verificación de pings/horarios desde MARCAS-GT-UI.
 
-## 2. Estructura
-
-```text
-src/design-system/
-├── fonts/
-├── theme/
-└── tokens/
-```
-
-## 3. Unistyles
-
-Unistyles 3 requiere su plugin Babel. En `babel.config.js`:
-
-```js
-module.exports = function (api) {
-  api.cache(true);
-
-  return {
-    presets: ['babel-preset-expo'],
-    plugins: [
-      [
-        'react-native-unistyles/plugin',
-        {
-          root: 'src',
-        },
-      ],
-    ],
-  };
-};
-```
-
-Expo SDK 57 configura automáticamente el plugin de Reanimated mediante `babel-preset-expo`.
-
-## 4. Entry point
-
-Cambia en `package.json`:
-
-```json
-"main": "index.ts"
-```
-
-Usa el `index.ts` incluido en este paquete como referencia.
-
-Después reinicia Metro:
-
-```bash
-npx expo start --clear
-```
-
-## 5. Theme
-
-Hay tres preferencias soportadas por contrato:
-
-```ts
-type ThemePreference = 'system' | 'light' | 'dark';
-```
-
-El controlador incluido arranca en `system`, sigue `Appearance` y permite forzar `light` o `dark`.
-La persistencia de la preferencia se conectará después (SQLite/Zustand).
-
-## 6. Reglas del Design System
-
-- Las features no consumen HEX.
-- Las features no consumen `palette.nova500`.
-- Los componentes consumen tokens semánticos: `theme.colors.primary`, `theme.colors.danger`, etc.
-- Los componentes usan la escala de spacing/radius/typography.
-- `variant` define presentación; `tone` define significado.
-- Motion, haptics y accesibilidad se añadirán en la siguiente fase.
-
-## 7. Colores corporativos
-
-El color NOVA se aproxima a `#2AC29A` a partir del logo proporcionado.
-Negro y blanco forman parte de la identidad.
-
-La paleta semántica separa:
-- `primary`: identidad NOVA,
-- `success`: éxito,
-- `warning`: advertencia,
-- `danger`: error/destructivo,
-- `info`: información.
-
-Esto evita utilizar el mismo verde corporativo para “acción primaria” y “éxito”.
-
-## Foundation v2 — Interaction
-
-This package now also includes:
-
-- motion tokens and Reanimated presets,
-- reduced-motion policy,
-- interaction state/touch policies,
-- semantic Expo Haptics service,
-- feedback semantics.
-
-See:
-
-```text
-CHANGELOG-v2.md
-src/design-system/docs/INTERACTION-FOUNDATION.md
-```
-
-No new runtime dependency is needed for v2.
-
-## Foundation v3 — Accessibility
-
-The cumulative v3 adds the accessibility layer before reusable components.
-
-Includes:
-
-- WCAG 2.2 AA policy/tokens,
-- OS accessibility preference store,
-- `useAccessibilityPreferences`,
-- reduced-transparency / increased-contrast signals,
-- current accessibility focus API,
-- accessible timeout handling,
-- screen-reader announcement service,
-- accessibility state/value helpers,
-- contrast validation utilities,
-- live-region and accessible-label conventions.
-
-See:
-
-```text
-CHANGELOG-v3.md
-src/design-system/docs/ACCESSIBILITY-FOUNDATION.md
-```
-
-No new dependency is required.
-
-## Foundation v3.2 — RN 0.86.2 AccessibilityInfo compatibility
-
-v3.2 is the current cumulative source of truth.
-
-It removes the unsupported `accessibilityServiceChanged` listener from the
-React Native 0.86.2 implementation while keeping
-`isAccessibilityServiceEnabled()` query-based reconciliation.
+**Nota**: el identificador Android cambió a `com.cardonasantos.marcasrastreo`.
+Se retiró el EAS `projectId` de la app anterior; configurar un proyecto EAS
+nuevo antes de generar builds remotos.

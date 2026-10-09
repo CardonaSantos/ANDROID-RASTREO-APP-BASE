@@ -3,6 +3,7 @@ import { startTracking, type StartTrackingResponse } from "../api";
 import { getTrackingDeviceStatus } from "./tracking-device.actions";
 
 import { startTrackingLocationService } from "../background";
+import { captureInitialTrackingLocation } from "./tracking-initial-location";
 
 import { loadTrackingProfileId, setActiveTrackingSession } from "../storage";
 
@@ -39,7 +40,11 @@ export async function startTrackingJourney(): Promise<StartTrackingResponse> {
     if (ready && !device.serviceRunning) {
       const profileId = await loadTrackingProfileId();
 
-      await startTrackingLocationService(profileId);
+      const service = await startTrackingLocationService(profileId);
+      if (service.started) {
+        // Una muestra inmediata evita esperar al primer intervalo de TaskManager.
+        void captureInitialTrackingLocation();
+      }
     }
   } catch (error) {
     console.warn(

@@ -17,6 +17,7 @@ import {
 } from "../storage";
 
 import { flushTrackingQueueForSession } from "./tracking-sync";
+import { captureInitialTrackingLocation } from "./tracking-initial-location";
 
 export interface TrackingReconciliationResult {
   active: boolean;
@@ -179,6 +180,9 @@ export async function reconcileTrackingRuntime(): Promise<TrackingReconciliation
   const profile = getTrackingProfile(profileId);
 
   const startResult = await startTrackingLocationService(profile.id);
+  if (startResult.started) {
+    void captureInitialTrackingLocation();
+  }
 
   return {
     active: true,

@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "marcas-rastreo",
   "main": "index.ts",
   "version": "1.0.0",
   "dependencies": {
@@ -86,8 +86,7 @@
     "test:watch": "jest --watch",
     "test:core": "jest tests/core",
     "test:coverage": "jest --coverage",
-    "test:tracking": "jest tests/features/tracking --runInBand",
-    "test:dashboard": "jest tests/features/dashboard --runInBand"
+    "test:tracking": "jest tests/features/tracking --runInBand"
   },
   "private": true
 }

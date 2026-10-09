@@ -17,12 +17,13 @@ import {
 
 import { TrackingDeviceCard } from "./TrackingDeviceCard";
 import { TrackingFinishedSummaryCard } from "./TrackingFinishedSummaryCard";
-import { TrackingProfileCard } from "./TrackingProfileCard";
+
 
 import {
   useFinishTrackingMutation,
   useStartTrackingMutation,
   useTrackingStateQuery,
+  useTrackingDeviceStatusQuery,
 } from "../hooks";
 import { TrackingSyncCard } from "./TrackingSyncCard";
 
@@ -67,6 +68,7 @@ export function TrackingScreen() {
   const [finishDialogOpen, setFinishDialogOpen] = useState(false);
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const trackingQuery = useTrackingStateQuery();
+  const deviceQuery = useTrackingDeviceStatusQuery();
 
   const startMutation = useStartTrackingMutation();
 
@@ -124,6 +126,9 @@ export function TrackingScreen() {
   }
 
   const tracking = trackingQuery.data;
+  const device = deviceQuery.data;
+  const canStart = Boolean(device?.supported && device.locationServicesEnabled &&
+    device.foregroundPermission === "granted" && device.backgroundPermission === "granted");
 
   return (
     <AppScrollScreen>
@@ -208,7 +213,7 @@ export function TrackingScreen() {
              * ni finaliza la asistencia.
              */}
 
-            <TrackingProfileCard journeyActive />
+
 
             {/*
              * ---------------------------------------------
@@ -315,9 +320,14 @@ export function TrackingScreen() {
              * ---------------------------------------------
              */}
 
-            <TrackingProfileCard journeyActive={false} />
+
 
             <TrackingDeviceCard journeyActive={false} />
+            {!canStart ? (
+              <AppAlert tone="warning" title="GPS pendiente">
+                Activa el GPS y concede ubicación y segundo plano antes de iniciar.
+              </AppAlert>
+            ) : null}
             {/*
              * ---------------------------------------------
              * ESTADO INACTIVO
@@ -345,6 +355,7 @@ export function TrackingScreen() {
               size="lg"
               leadingIcon={Play}
               loading={startMutation.isPending}
+              disabled={!canStart}
               loadingAccessibilityLabel="Iniciando jornada"
               onPress={() => {
                 setStartDialogOpen(true);
@@ -370,8 +381,8 @@ export function TrackingScreen() {
               }}
             >
               <AppAlert tone="info" title="El seguimiento comenzará">
-                La aplicación intentará iniciar el seguimiento GPS con el perfil
-                y los permisos actuales del dispositivo.
+                Se iniciará el servicio GPS en segundo plano y se enviará
+                una ubicación inicial cuando Android la proporcione.
               </AppAlert>
             </AppConfirmDialog>
           </>

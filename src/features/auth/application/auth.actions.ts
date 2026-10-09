@@ -9,6 +9,8 @@ import { sessionManager } from "@/core/session";
 import { loginUser, type AuthUser, type LoginCredentials } from "../api";
 
 import { authProfileQueryKey } from "./auth-profile.query";
+import { TRACKING_ALLOWED_ROLES } from "../api/auth.contracts.api";
+import { clearAuthProfile, saveAuthProfile } from "../storage/auth-user.storage";
 import { mapAuthUserToCurrentUser } from "./auth.mapper";
 
 export type BeforeLogoutHandler = () => Promise<void>;
@@ -56,37 +58,27 @@ export function configureBeforeLogoutHandler(
   };
 }
 
+
 export async function login(credentials: LoginCredentials): Promise<AuthUser> {
   const response = await loginUser(credentials);
-
+  if (!response.user.activo ||
+      !TRACKING_ALLOWED_ROLES.some((role) => role === response.user.rol)) {
+    throw new AppError({
+      kind: "forbidden",
+      source: "application",
+      code: "MARCAS_TRACKING_ROLE_FORBIDDEN",
+      message: "La cuenta no tiene acceso al seguimiento de jornadas.",
+    });
+  }
+  // El JWT de MARCAS no incluye refresh-token y se guarda por la
+  // estrategia access-token existente de Core.
+  await saveAuthProfile(response.user);
   await sessionManager.establish({
     accessToken: response.accessToken,
-
-    persistence: {
-      strategy: "access-token",
-    },
+    persistence: { strategy: "access-token" },
   });
-
-  const currentUser = mapAuthUserToCurrentUser(response.user);
-
-  /*
-   * Guardamos el perfil completo para
-   * componentes de aplicación:
-   *
-   * - toolbar
-   * - avatar
-   * - menú de usuario
-   * - perfil
-   */
   queryClient.setQueryData(authProfileQueryKey, response.user);
-
-  /*
-   * Access conserva únicamente la
-   * representación mínima necesaria
-   * para roles y permisos.
-   */
-  queryClient.setQueryData(currentUserQueryKey, currentUser);
-
+  queryClient.setQueryData(currentUserQueryKey, mapAuthUserToCurrentUser(response.user));
   return response.user;
 }
 
@@ -109,6 +101,12 @@ export async function logout(): Promise<void> {
    * terminaron correctamente.
    */
   await sessionManager.clear();
+
+  try {
+    await clearAuthProfile();
+  } catch (error) {
+    console.warn('[auth] No pudo limpiarse el perfil local.', error);
+  }
 
   removeCurrentUser();
 

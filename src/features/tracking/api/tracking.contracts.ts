@@ -74,6 +74,7 @@ export const finishTrackingResponseSchema = z.object({
 });
 
 export const registerTrackingLocationInputSchema = z.object({
+  claveIdempotencia: z.string().trim().min(1).max(200).optional(),
   sesionTrackingId: z.number().int().positive(),
 
   latitud: z.number().min(-90).max(90),

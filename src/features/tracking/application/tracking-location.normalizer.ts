@@ -80,6 +80,8 @@ export function normalizeTrackingLocation(
   return {
     sesionTrackingId: sessionId,
 
+    claveIdempotencia: `marcas:${sessionId}:${normalizeCapturedAt(location.timestamp)}:${latitude}:${longitude}`,
+
     latitud: latitude,
 
     longitud: longitude,

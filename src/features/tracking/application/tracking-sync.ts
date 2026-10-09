@@ -99,69 +99,48 @@ export async function flushTrackingQueueForSession(
     };
   }
 
-  /*
-   * Procesamos de forma secuencial.
-   *
-   * El backend todavía no posee una
-   * clave de idempotencia para ubicación,
-   * por lo que evitamos retries paralelos
-   * o agresivos.
-   */
-  const pending = await listQueuedTrackingLocationsForSession(sessionId, 25);
 
   let sent = 0;
-
-  for (const item of pending) {
-    await markQueuedTrackingLocationAttempt(item.id);
-
-    let response;
-
-    try {
-      response = await registerTrackingLocation(item.payload);
-    } catch {
-      return {
-        sent,
-
-        remaining: await countQueuedTrackingLocationsForSession(sessionId),
-
-        reason: "request-failed",
-      };
+  // La cola puede superar 25 posiciones tras varias horas sin conexión.
+  // Procesar todos los lotes permite cerrar una jornada sin perder datos.
+  for (let batch = 0; batch < 200; batch += 1) {
+    const pending = await listQueuedTrackingLocationsForSession(sessionId, 25);
+    if (pending.length === 0) {
+      return { sent, remaining: 0, reason: "completed" };
     }
 
-    /*
-     * ACK confirmado.
-     *
-     * A partir de aquí el servidor ya
-     * persistió esta ubicación.
-     */
-    await deleteQueuedTrackingLocation(item.id);
+    for (const item of pending) {
+      await markQueuedTrackingLocationAttempt(item.id);
+      let response;
+      try {
+        // El servidor deduplica por claveIdempotencia, incluso tras
+        // perder el ACK de una petición anterior.
+        response = await registerTrackingLocation(item.payload);
+      } catch {
+        return {
+          sent,
+          remaining: await countQueuedTrackingLocationsForSession(sessionId),
+          reason: "request-failed",
+        };
+      }
 
-    /*
-     * Estos metadatos son informativos.
-     * Un fallo guardándolos no debe volver
-     * a insertar una ubicación que ya tuvo ACK.
-     */
-    try {
-      await saveTrackingSyncSuccess({
-        receivedAt: response.recibidoEn,
-
-        heartbeatAt: response.ultimoHeartbeatEn,
-      });
-    } catch (error) {
-      console.warn(
-        "[tracking-sync] No se pudo persistir metadata de sincronización.",
-        error,
-      );
+      await deleteQueuedTrackingLocation(item.id);
+      try {
+        await saveTrackingSyncSuccess({
+          receivedAt: response.recibidoEn,
+          heartbeatAt: response.ultimoHeartbeatEn,
+        });
+      } catch (error) {
+        console.warn("[tracking-sync] No pudo guardarse el último ACK.", error);
+      }
+      sent += 1;
     }
-
-    sent += 1;
   }
 
+  // Límite preventivo para no bloquear indefinidamente una ejecución headless.
   return {
     sent,
-
     remaining: await countQueuedTrackingLocationsForSession(sessionId),
-
-    reason: "completed",
+    reason: "request-failed",
   };
 }

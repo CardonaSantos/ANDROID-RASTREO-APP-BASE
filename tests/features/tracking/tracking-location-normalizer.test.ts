@@ -38,6 +38,8 @@ describe("tracking location normalizer", () => {
 
     expect(result?.sesionTrackingId).toBe(25);
 
+    expect(result?.claveIdempotencia).toContain("marcas:25:");
+
     expect(result?.latitud).toBe(15.3198);
 
     expect(result?.longitud).toBe(-91.4708);

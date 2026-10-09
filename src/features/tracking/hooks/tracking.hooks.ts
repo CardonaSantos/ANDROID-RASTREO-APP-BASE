@@ -39,6 +39,7 @@ export function useStartTrackingMutation() {
       };
 
       queryClient.setQueryData(trackingStateQueryKey, nextState);
+      void queryClient.invalidateQueries({ queryKey: ["tracking", "device-status"] });
     },
   });
 }
