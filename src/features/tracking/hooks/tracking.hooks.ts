@@ -4,9 +4,7 @@ import { queryClient } from "@/core/query";
 
 import { getMyTrackingState, type TrackingState } from "../api";
 
-import { startTrackingJourney } from "../application";
-
-import { finishTrackingJourney } from "../application";
+import { startTrackingJourney, finishTrackingJourney } from "../application";
 
 export const trackingStateQueryKey = ["tracking", "me"] as const;
 
