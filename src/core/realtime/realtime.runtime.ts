@@ -53,6 +53,8 @@ let unsubscribeRealtimeEvents: (() => void) | null = null;
 
 let unsubscribeRealtimeErrors: (() => void) | null = null;
 
+let reportedConnectionFailure = false;
+
 let latestNetwork: NetworkSnapshot | null = null;
 
 let latestSession: SessionSnapshot | null = null;
@@ -91,7 +93,8 @@ function logRealtimeSnapshot(snapshot: RealtimeSnapshot): void {
   });
 
   if (snapshot.status === "connected") {
-    console.info("[realtime] Socket.IO conectado correctamente al CRM.");
+    reportedConnectionFailure = false;
+    console.info("[realtime] Socket.IO conectado a MARCAS.");
   }
 }
 
@@ -115,11 +118,24 @@ function attachDevelopmentDiagnostics(): void {
   });
 
   unsubscribeRealtimeErrors = realtimeClient.subscribeErrors((error) => {
-    console.error("[realtime] Error Socket.IO:", error);
+    // Realtime es best-effort. Un reintento no debe activar LogBox rojo
+    // ni poner en duda que el GPS se sincroniza por HTTP.
+    if (error.code === "REALTIME_CONNECTION_FAILED") {
+      if (!reportedConnectionFailure) {
+        console.info("[realtime] Conexión no disponible; se reintentará.", {
+          code: error.code,
+        });
+        reportedConnectionFailure = true;
+      }
+      return;
+    }
+    // Diagnóstico de otros errores sin exponer payloads ni credenciales.
+    console.warn("[realtime] Evento de error Socket.IO:", { code: error.code });
   });
 }
 
 function detachDevelopmentDiagnostics(): void {
+  reportedConnectionFailure = false;
   unsubscribeRealtimeErrors?.();
 
   unsubscribeRealtimeErrors = null;

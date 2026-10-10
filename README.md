@@ -48,6 +48,43 @@ velocidad, batería, `capturadoEn` y `claveIdempotencia` estable.
 5. Conceder ubicación normal y en segundo plano, activar GPS, iniciar
    jornada y verificar el indicador de servicio y sincronización.
 
+## Socket.IO: infraestructura conservada y preparada para eventos
+
+Realtime sigue en `core/realtime` con su manager, lifecycle, autenticación
+JWT en `handshake.auth.token`, handlers e invalidación de TanStack Query.
+No se utiliza para **enviar GPS**. Las posiciones se siguen enviando por HTTP
+y la cola SQLite conserva los pendientes.
+
+Por defecto no se conecta en la app de campo, para no gastar red ni batería
+sin eventos para el rol:
+
+```dotenv
+EXPO_PUBLIC_REALTIME_ENABLED=false
+EXPO_PUBLIC_REALTIME_URL=
+```
+
+Para activar recepción de eventos, cambiar a `true` y reiniciar Metro.
+Con URL vacía usa automáticamente `EXPO_PUBLIC_API_URL`; si se especifica
+un origen debe ser alcanzable desde Android (en emulador, no usar localhost
+del teléfono). El adapter añade namespace `/ws` y path `/socket.io`.
+
+El módulo `application/realtime` registra un binding para eventos de
+tracking **del propio usuario** que invalidan `["tracking","me"]`.
+Al conectar/reconectar, también se invalida ese estado para recuperar
+eventos perdidos mientras Android estuvo en segundo plano. Las demás
+features podrán adjuntar bindings de eventos y claves de queries.
+
+**Contrato comprobado en MARCAS-GT-SERVER:** el gateway solo publica
+`tracking:location-updated` y `tracking:state-changed` a `role:ADMIN`.
+Los usuarios VENDEDOR/REPARTIDOR no reciben estos eventos actualmente:
+para notificaciones destinadas a ellos el servidor debe añadir contratos
+autorizados y emitir a `user:<id>` o rooms equivalentes. No inventamos
+un canal bidireccional GPS ni enviamos eventos sin soporte de backend.
+
+Los errores de reconexión son diagnósticos informativos, no errores fatales
+para la jornada; la conexión se suspende en background y se recupera al
+volver al primer plano, conforme al ciclo de vida de Core.
+
 ## Seguimiento y seguridad
 
 - `expo-task-manager` define la tarea antes de montar Expo Router.

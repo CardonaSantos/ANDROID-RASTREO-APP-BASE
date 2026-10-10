@@ -3,6 +3,7 @@ import { DEFAULT_HTTP_TIMEOUT_MS } from "./config.constants";
 import { appEnvironmentSchema } from "./config.schema";
 
 import { rawEnvironment } from "./environment";
+import { resolveRealtimeConnectionConfig } from "./realtime-config";
 
 const result = appEnvironmentSchema.safeParse(rawEnvironment);
 
@@ -28,9 +29,7 @@ const apiConfig = Object.freeze({
   timeoutMs: DEFAULT_HTTP_TIMEOUT_MS,
 });
 
-const realtimeConfig = Object.freeze({
-  url: environment.EXPO_PUBLIC_REALTIME_URL ?? null,
-});
+const realtimeConfig = resolveRealtimeConnectionConfig(environment);
 
 export const appConfig = Object.freeze({
   environment: environment.EXPO_PUBLIC_APP_ENV,

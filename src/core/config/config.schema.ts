@@ -77,6 +77,12 @@ export const appEnvironmentSchema = z
     EXPO_PUBLIC_API_URL: httpUrlSchema,
 
     EXPO_PUBLIC_REALTIME_URL: optionalRealtimeServerUrlSchema,
+
+    // El socket es opt-in en la app de campo; para el GPS usamos HTTP.
+    EXPO_PUBLIC_REALTIME_ENABLED: z.preprocess(
+      (value) => value === "" ? undefined : value,
+      z.enum(["true", "false"]).default("false"),
+    ),
   })
 
   /*
