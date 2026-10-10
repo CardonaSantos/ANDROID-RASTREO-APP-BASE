@@ -112,6 +112,7 @@ export default function HomeScreen() {
                 label: name,
                 description: role,
                 disabled: true,
+                onPress: () => undefined,
               },
               { type: "separator", id: "user-divider" },
               {
