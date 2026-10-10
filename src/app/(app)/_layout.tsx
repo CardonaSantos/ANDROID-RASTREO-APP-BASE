@@ -8,7 +8,8 @@ export default function AppLayout() {
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Atrás" }}>
-      <Stack.Screen name="index" options={{ title: "MARCAS Rastreo" }} />
+      {/* La Home posee una cabecera compacta con el menú de cuenta. */}
+      <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="tracking" options={{ title: "Jornada" }} />
     </Stack>
   );
