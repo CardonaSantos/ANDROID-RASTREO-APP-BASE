@@ -155,10 +155,12 @@ eas env:set --name EXPO_PUBLIC_API_URL --value $apiUrl --environment production 
 eas env:list --environment production
 ```
 
-El perfil fija `EXPO_PUBLIC_APP_ENV=production`,
-`EXPO_PUBLIC_REALTIME_ENABLED=false` y
-`EXPO_PUBLIC_REALTIME_URL=` (vacía) mediante `build.env`.
-El GPS transmite ubicaciones por HTTP y no necesita Socket.IO activo.
+El perfil fija `EXPO_PUBLIC_APP_ENV=production` y
+`EXPO_PUBLIC_REALTIME_ENABLED=false` mediante `build.env`.
+**No** se incluye `EXPO_PUBLIC_REALTIME_URL`: EAS rechaza valores vacíos
+en `build.env`, y no necesitamos configurar un origen de Socket.IO
+cuando el canal está desactivado. El GPS transmite ubicaciones por HTTP
+y no necesita Socket.IO activo.
 Nunca almacenar secretos/JWT/contraseñas en `EXPO_PUBLIC_*`.
 
 ### Iniciar compilación APK
