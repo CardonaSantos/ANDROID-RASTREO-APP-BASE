@@ -20,6 +20,15 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "marcas-production": {
+      "extends": "production",
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_REALTIME_ENABLED": "false",
+        "EXPO_PUBLIC_REALTIME_URL": ""
+      }
     }
   },
   "submit": {

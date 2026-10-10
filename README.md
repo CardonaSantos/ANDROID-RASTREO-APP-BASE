@@ -120,3 +120,67 @@ cola pendiente, y verificación de pings/horarios desde MARCAS-GT-UI.
 **Nota**: el identificador Android cambió a `com.cardonasantos.marcasrastreo`.
 Se retiró el EAS `projectId` de la app anterior; configurar un proyecto EAS
 nuevo antes de generar builds remotos.
+
+## Build Android de Marcas Guatemala (EAS)
+
+El perfil `marcas-production` hereda de `production`: genera APK
+firmada para distribución interna, activa `autoIncrement` y utiliza el
+entorno EAS `production`. La URL del servidor **no se fija en el repositorio**;
+se administra desde las variables de entorno del proyecto EAS.
+
+### Primera configuración de un proyecto EAS independiente
+
+```powershell
+npm install -g eas-cli
+eas login
+eas init
+eas project:info
+```
+
+Al ejecutar `eas init`, elegir **crear un proyecto nuevo** llamado
+Marcas Guatemala, sin vincularlo al proyecto anterior NOVA. El CLI
+actualiza `expo.extra.eas.projectId` en `app.json`. Conservar ese
+identificador en GitHub para reproducir las compilaciones posteriores.
+El identificador Android debe seguir siendo
+`com.cardonasantos.marcasrastreo`.
+
+### Variables públicas del entorno EAS production
+
+Introducir la URL **HTTPS completa y real** de MARCAS-GT-SERVER,
+sin `/auth`, `/tracking` ni `/socket.io` al final:
+
+```powershell
+$apiUrl = "https://TU_DOMINIO_REAL_DE_RAILWAY"
+eas env:set --name EXPO_PUBLIC_API_URL --value $apiUrl --environment production --visibility plaintext
+eas env:list --environment production
+```
+
+El perfil fija `EXPO_PUBLIC_APP_ENV=production`,
+`EXPO_PUBLIC_REALTIME_ENABLED=false` y
+`EXPO_PUBLIC_REALTIME_URL=` (vacía) mediante `build.env`.
+El GPS transmite ubicaciones por HTTP y no necesita Socket.IO activo.
+Nunca almacenar secretos/JWT/contraseñas en `EXPO_PUBLIC_*`.
+
+### Iniciar compilación APK
+
+```powershell
+eas build --platform android --profile marcas-production
+```
+
+Durante la primera build, permitir que EAS genere/gestione la keystore
+Android. El enlace de expo.dev al terminar permite instalar la APK en
+un dispositivo Android; no se requiere Metro. Revisar primero que
+`eas project:info` apunte al proyecto nuevo.
+
+Para Play Store no usar esta APK: se requiere una build `.aab` y el
+proceso de firma/publicación correspondiente.
+
+### Prueba de campo previa a distribución
+
+Comprobar en teléfono físico: instalación, login, permisos de ubicación
+precisa y segundo plano, inicio de jornada, GPS correcto, bloqueo de pantalla,
+registro de pings en MARCAS-GT-UI, cierre de jornada, offline/reconexión y
+cola SQLite. El emulador usa ubicación simulada.
+
+**No usar** `10.0.2.2` en ninguna compilación de producción; esa dirección
+solo comunica al emulador con el computador anfitrión.
